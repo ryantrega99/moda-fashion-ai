@@ -9,8 +9,6 @@ interface StudioViewProps {
 }
 
 const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
-  const isMannequinRemover = tool?.id === 'mannequin-remover';
-  
   const [productImage, setProductImage] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
   const [resultImage, setResultImage] = useState<string | null>(null);
@@ -24,12 +22,21 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
     setProductImage(null);
     setErrorMsg(null);
 
-    const hdQuality = "ULTRA HD 8K RESOLUTION, CYBERPUNK HIGH-FASHION AESTHETIC, SHARP TEXTURES, STUDIO LIGHTING, PROFESSIONAL PHOTOGRAPHY.";
+    const hdQuality = "ULTRA HD 8K RESOLUTION, SHARP FOCUS, PROFESSIONAL PHOTOGRAPHY, STUDIO LIGHTING, MASTERPIECE.";
 
-    if (isMannequinRemover) {
-      setPrompt(`${hdQuality} GHOST MANNEQUIN: Create a 3D clothing hollow shell. Remove human model. 100% TRANSPARENT BACKGROUND.`);
-    } else {
-      setPrompt(`${hdQuality} LUXURY FASHION RENDER: High-end model, editorial pose, cinematic cyan lighting, ultra-realistic.`);
+    // Logika Prompt Berdasarkan ID Tool Baru
+    switch(tool?.id) {
+      case 'mannequin-remover':
+        setPrompt(`${hdQuality} GHOST MANNEQUIN EFFECT: Create a 3D hollow clothing shell. Remove the mannequin completely. Pure white background. Clear fabric details.`);
+        break;
+      case 'model-katalog':
+        setPrompt(`${hdQuality} PREMIUM CATALOG: A professional fashion model wearing this garment, elegant pose, neutral studio background, high-end magazine lighting.`);
+        break;
+      case 'lookbook-pro':
+        setPrompt(`${hdQuality} HIGH-END LOOKBOOK: Editorial fashion model posing in a minimalist high-end architectural space, cinematic lighting, sharp fabric textures, sophisticated vibe.`);
+        break;
+      default:
+        setPrompt(hdQuality);
     }
   }, [tool?.id]);
 
@@ -37,12 +44,12 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
     if (window.aistudio?.openSelectKey) {
       try {
         await window.aistudio.openSelectKey();
-        setErrorMsg("API Key terdeteksi. Silakan Render ulang.");
+        setErrorMsg("Engine Berhasil Dihubungkan. Silakan Render kembali.");
       } catch (e) {
-        console.error("Selector failed:", e);
+        console.error("Gagal membuka selector:", e);
       }
     } else {
-      setErrorMsg("Kunci API tidak ditemukan. Jika di Vercel, tambahkan 'API_KEY' di Dashboard Project Anda.");
+      alert("Hubungkan API_KEY Anda melalui Dashboard Vercel (Environment Variables).");
     }
   };
 
@@ -54,9 +61,13 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
     setErrorMsg(null);
 
     try {
-      // Per rule: Instantiate right before call
-      // Assume API_KEY is available as per instructions
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+      const apiKey = process.env.API_KEY;
+      
+      if (!apiKey || apiKey === "undefined" || apiKey === "") {
+        throw new Error("AUTH_ERROR");
+      }
+
+      const ai = new GoogleGenAI({ apiKey: apiKey });
       
       const base64Data = productImage.split(',')[1];
       const mimeType = productImage.split(',')[0].split(':')[1].split(';')[0];
@@ -75,10 +86,14 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
       });
 
       const candidate = response.candidates?.[0];
-      if (!candidate) throw new Error("Engine tidak memberikan respon.");
+      if (!candidate) throw new Error("ENGINE_EMPTY");
+
+      if (candidate.finishReason === 'SAFETY') {
+        throw new Error("SAFETY_BLOCK");
+      }
 
       let foundImage = false;
-      if (candidate.content && candidate.content.parts) {
+      if (candidate.content?.parts) {
         for (const part of candidate.content.parts) {
           if (part.inlineData) {
             setResultImage(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
@@ -88,16 +103,18 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
         }
       }
 
-      if (!foundImage) throw new Error("Render gagal memproses gambar.");
+      if (!foundImage) throw new Error("NO_IMAGE");
 
     } catch (error: any) {
-      console.error('MODAFX Error:', error);
+      console.error('MODAFX Render Error:', error);
       const msg = error.message || "";
       
-      if (msg.includes('403') || msg.includes('API_KEY') || msg.includes('not found') || !process.env.API_KEY) {
-        setErrorMsg("API KEY INVALID / MISSING");
+      if (msg === "AUTH_ERROR" || msg.includes('403') || msg.includes('API_KEY')) {
+        setErrorMsg("API KEY HILANG ATAU TIDAK VALID");
       } else if (msg.includes('429')) {
-        setErrorMsg("QUOTA EXCEEDED");
+        setErrorMsg("QUOTA ENGINE HABIS. COBA LAGI NANTI.");
+      } else if (msg === "SAFETY_BLOCK") {
+        setErrorMsg("KONTEN DIBLOKIR FILTER KEAMANAN");
       } else {
         setErrorMsg(`ERROR: ${msg.substring(0, 50).toUpperCase()}`);
       }
@@ -111,17 +128,17 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
   return (
     <div className="flex h-full w-full gap-10 animate-in fade-in duration-700">
       <div className="w-[450px] flex flex-col gap-6">
-        <div className="bg-[#050505] border border-cyan-500/10 rounded-[50px] p-10 flex flex-col h-full relative overflow-hidden">
+        <div className="bg-[#050505] border border-cyan-500/10 rounded-[50px] p-10 flex flex-col h-full relative overflow-hidden shadow-2xl">
           <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-[80px]"></div>
           
           <div className="flex items-center gap-3 mb-10">
-            <span className="bg-cyan-500 text-black text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest italic">NANO-FX</span>
-            <span className="text-cyan-500/40 text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-cyan-500/10 italic">PRO ENGINE</span>
+            <span className="bg-cyan-500 text-black text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest italic shadow-lg">NANO-FX</span>
+            <span className="text-cyan-500/40 text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-cyan-500/10 italic tracking-tighter">FLASH 2.5</span>
           </div>
 
           <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-4 leading-tight">{tool.title}</h2>
           <p className="text-slate-500 text-[11px] font-medium mb-12 leading-relaxed uppercase tracking-widest">
-            Automated production. Render visual fashion dengan detail nano-realistik.
+            Produksi otomatis. Render visual fashion dengan detail nano-realistik.
           </p>
 
           <div className="flex-1 space-y-10">
@@ -136,7 +153,7 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
                   <div className="w-16 h-16 rounded-[28px] bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/5">
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest">Select Source</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest">PILIH FOTO PRODUK</p>
                 </div>
               )}
               <input type="file" ref={fileInputRef} onChange={(e) => {
@@ -152,7 +169,7 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
             <textarea 
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              className="w-full h-32 bg-black border border-white/5 rounded-[30px] p-6 text-[11px] font-medium text-slate-400 focus:outline-none focus:border-cyan-500/30 transition-all leading-relaxed"
+              className="w-full h-32 bg-black border border-white/5 rounded-[30px] p-6 text-[11px] font-medium text-slate-400 focus:outline-none focus:border-cyan-500/30 transition-all leading-relaxed shadow-inner"
             />
           </div>
 
@@ -160,27 +177,27 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
             <button 
               onClick={handleGenerate}
               disabled={isGenerating || !productImage}
-              className={`w-full py-6 rounded-[28px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-4 transition-all duration-300 active:scale-95 text-[11px] ${
+              className={`w-full py-6 rounded-[28px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-4 transition-all duration-300 active:scale-95 text-[11px] shadow-2xl ${
                 isGenerating || !productImage
                 ? 'bg-white/5 text-slate-700 cursor-not-allowed border border-white/5'
-                : 'bg-cyan-500 text-black hover:bg-white hover:shadow-[0_0_30px_rgba(0,245,255,0.3)]'
+                : 'bg-cyan-500 text-black hover:bg-white hover:shadow-[0_0_30px_rgba(0,245,255,0.4)]'
               }`}
             >
               {isGenerating ? (
                 <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
-              ) : 'EXECUTE RENDER'}
+              ) : 'MULAI RENDER'}
             </button>
 
             {errorMsg && (
-              <div className="space-y-4">
+              <div className="space-y-4 animate-in slide-in-from-top-2">
                 <div className="p-5 bg-red-500/5 border border-red-500/20 rounded-[20px] text-center">
                   <p className="text-[9px] text-red-500 font-black uppercase tracking-widest">{errorMsg}</p>
                 </div>
                 <button 
                   onClick={handleUpdateKey}
-                  className="w-full py-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-[20px] text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all"
+                  className="w-full py-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-[20px] text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all shadow-lg"
                 >
-                  SET ENGINE KEY
+                  SILAKAN HUBUNGKAN ULANG ENGINE
                 </button>
               </div>
             )}
@@ -189,10 +206,10 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
       </div>
 
       <div className="flex-1 flex flex-col gap-8">
-        <div className={`flex-1 bg-black border border-white/5 rounded-[60px] overflow-hidden flex flex-col items-center justify-center relative group ${isMannequinRemover && resultImage ? 'checkerboard' : ''}`}>
+        <div className={`flex-1 bg-black border border-white/5 rounded-[60px] overflow-hidden flex flex-col items-center justify-center relative group shadow-inner ${tool?.id === 'mannequin-remover' && resultImage ? 'checkerboard' : ''}`}>
           {resultImage ? (
             <div className="w-full h-full p-16 flex items-center justify-center animate-in zoom-in-95 fade-in duration-1000">
-              <div className="h-full aspect-[9/16] bg-transparent rounded-[45px] overflow-hidden relative border border-cyan-500/10 group/result shadow-[0_0_80px_rgba(0,245,255,0.05)]">
+              <div className="h-full aspect-[9/16] bg-transparent rounded-[45px] overflow-hidden relative border border-cyan-500/10 group/result shadow-[0_0_100px_rgba(0,245,255,0.1)]">
                 <img src={resultImage} alt="Result" className="w-full h-full object-cover" />
                 <button 
                   onClick={() => {
@@ -208,16 +225,16 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
               </div>
             </div>
           ) : (
-            <div className="text-center opacity-10">
+            <div className="text-center opacity-10 flex flex-col items-center gap-6">
               <p className="text-[10px] font-black text-white uppercase tracking-[1em] italic">Engine Ready // 8K Output</p>
             </div>
           )}
 
           {isGenerating && (
-            <div className="absolute inset-0 bg-black/95 flex items-center justify-center z-20">
+            <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl flex items-center justify-center z-20">
               <div className="text-center space-y-8">
                 <div className="w-16 h-16 border-2 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin mx-auto"></div>
-                <p className="text-[11px] font-black text-cyan-400 uppercase tracking-[0.6em] animate-pulse italic">Synthesizing FX...</p>
+                <p className="text-[11px] font-black text-cyan-400 uppercase tracking-[0.6em] animate-pulse italic">MENSINTESIS FX...</p>
               </div>
             </div>
           )}
