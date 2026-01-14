@@ -26,10 +26,11 @@
     </style>
     <script>
         /** 
-         * Polyfill darurat untuk mencegah "process is not defined" 
-         * di lingkungan browser murni.
+         * Polyfill non-destruktif untuk mencegah "process is not defined" 
+         * tanpa menimpa variabel yang sudah ada.
          */
-        window.process = window.process || { env: {} };
+        window.process = window.process || {};
+        window.process.env = window.process.env || {};
     </script>
 <script type="importmap">
 {
