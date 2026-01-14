@@ -24,37 +24,48 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
     setProductImage(null);
     setErrorMsg(null);
 
-    const hdQuality = "8K ULTIMATE RESOLUTION, HYPER-REALISTIC, MACRO FABRIC DETAIL, PROFESSIONAL STUDIO LIGHTING, NO COMPRESSION.";
+    const hdQuality = "ULTRA HD 8K RESOLUTION, HIGH-FIDELITY FABRIC TEXTURE, PROFESSIONAL PHOTOGRAPHY, STUDIO LIGHTING, SHARP OPTICS, MASTERPIECE.";
 
     if (isMannequinRemover) {
-      setPrompt(`${hdQuality} GHOST MANNEQUIN: Extract clothing. Remove 100% of human model. Create a hollow 3D effect for the garment. 100% TRANSPARENT BACKGROUND.`);
+      setPrompt(`${hdQuality} GHOST MANNEQUIN EFFECT: Isolate the clothing into a 3D hollow shell. Remove human model completely. 100% TRANSPARENT BACKGROUND.`);
     } else {
-      setPrompt(`${hdQuality} PREMIUM FASHION RENDER: High-end model wearing the garment, sophisticated pose, elegant studio background, soft cinematic lighting.`);
+      setPrompt(`${hdQuality} PREMIUM FASHION CATALOG: Professional fashion model wearing the garment, elegant pose, sophisticated studio lighting, cinematic atmosphere.`);
     }
   }, [tool?.id]);
 
   const handleUpdateKey = async () => {
     if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      setErrorMsg("Kunci telah diperbarui. Silakan coba render kembali.");
+      try {
+        await window.aistudio.openSelectKey();
+        setErrorMsg("API Key diperbarui. Silakan Render kembali.");
+      } catch (e) {
+        console.error("Gagal update key:", e);
+      }
     }
   };
 
   const handleGenerate = async () => {
     if (!productImage || !prompt) return;
+    
+    // Pastikan API Key terbaru diambil
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      setErrorMsg("API Key Hilang. Silakan hubungkan ulang engine.");
+      return;
+    }
+
     setIsGenerating(true);
     setResultImage(null);
     setErrorMsg(null);
 
     try {
-      // Per aturan: Instance harus dibuat tepat sebelum pemanggilan API
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+      const ai = new GoogleGenAI({ apiKey });
       
       const base64Data = productImage.split(',')[1];
       const mimeType = productImage.split(',')[0].split(':')[1].split(';')[0];
       
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image', // Nano Banana
+        model: 'gemini-2.5-flash-image', 
         contents: {
           parts: [
             { inlineData: { data: base64Data, mimeType: mimeType } },
@@ -68,17 +79,16 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
         }
       });
 
-      if (!response || !response.candidates || response.candidates.length === 0) {
+      if (!response.candidates || response.candidates.length === 0) {
         throw new Error("Engine tidak memberikan respon visual.");
       }
 
       const candidate = response.candidates[0];
       
       if (candidate.finishReason === 'SAFETY') {
-        throw new Error("SAFETY BLOCK: Gambar ini dibatasi oleh aturan keamanan AI.");
+        throw new Error("SAFETY BLOCK: Gambar diblokir oleh filter keamanan AI.");
       }
 
-      // Robust extraction: Mencari inlineData di semua part yang ada
       let foundImage = false;
       if (candidate.content && candidate.content.parts) {
         for (const part of candidate.content.parts) {
@@ -92,22 +102,19 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
 
       if (!foundImage) {
         const textFallback = candidate.content.parts.find(p => p.text);
-        if (textFallback?.text) {
-          throw new Error(`AI Respon: "${textFallback.text.substring(0, 100)}..."`);
-        }
-        throw new Error("Render Gagal: Output gambar tidak ditemukan dalam respon.");
+        throw new Error(textFallback?.text ? `AI Menolak: ${textFallback.text.substring(0, 100)}` : "Render Gagal.");
       }
 
     } catch (error: any) {
       console.error('Luxe Studio Error:', error);
-      
       const errorStr = error.message || "";
+      
       if (errorStr.includes('429')) {
-        setErrorMsg("LIMIT TERCAPAI: Kuota API Key ini telah habis.");
-      } else if (errorStr.includes('API Key') || errorStr.includes('403')) {
-        setErrorMsg("KUNCI TIDAK VALID: Silakan pilih API Key yang aktif.");
+        setErrorMsg("KUOTA GRATIS HABIS: Terlalu banyak permintaan. Pilih Key baru.");
+      } else if (errorStr.includes('403') || errorStr.includes('key')) {
+        setErrorMsg("API KEY TIDAK VALID: Silakan pilih ulang kunci Anda.");
       } else {
-        setErrorMsg("ERROR ENGINE: " + (errorStr || "Gagal memproses data visual."));
+        setErrorMsg(`ERROR: ${errorStr.substring(0, 50)}...`);
       }
     } finally {
       setIsGenerating(false);
@@ -117,36 +124,38 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
   if (!tool) return null;
 
   return (
-    <div className="flex h-full w-full gap-8 animate-in fade-in duration-500">
+    <div className="flex h-full w-full gap-8 animate-in fade-in duration-700">
       <div className="w-[450px] flex flex-col gap-6">
-        <div className="bg-[#080808] border border-white/5 rounded-[32px] p-8 flex flex-col h-full shadow-xl">
-          <div className="flex items-center gap-2 mb-6">
-            <span className="bg-amber-500/10 text-amber-500 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest italic">8K Nano Pro</span>
-            <span className="bg-white/5 text-slate-500 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Master Studio</span>
+        <div className="bg-[#080808] border border-white/5 rounded-[40px] p-10 flex flex-col h-full shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[80px]"></div>
+          
+          <div className="flex items-center gap-3 mb-8">
+            <span className="bg-amber-500 text-black text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest italic shadow-lg shadow-amber-500/20">HD PRO</span>
+            <span className="bg-white/5 text-slate-500 text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-white/5">NANO FLASH</span>
           </div>
 
-          <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-4">{tool.title}</h2>
-          <p className="text-slate-500 text-[11px] font-medium mb-10 leading-relaxed">
+          <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-4 leading-tight">{tool.title}</h2>
+          <p className="text-slate-500 text-[11px] font-medium mb-12 leading-relaxed opacity-80">
             {isMannequinRemover 
-              ? "Surgical isolation engine. Menghasilkan aset pakaian tanpa model manusia dengan presisi pixel sempurna."
-              : "Studio rendering engine. Menciptakan visual model profesional dengan detail kain makro."}
+              ? "Industrial isolation engine. Menghasilkan aset transparan 8K tanpa residu model."
+              : "Creative production engine. Render visual fashion premium dengan detail ultra-realistik."}
           </p>
 
-          <div className="flex-1 space-y-8">
+          <div className="flex-1 space-y-10">
             <div className="space-y-4">
-              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Source Material</p>
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em]">Source Asset</p>
               <div 
                 onClick={() => fileInputRef.current?.click()}
-                className={`h-64 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all ${productImage ? 'border-amber-500/40 bg-amber-500/5' : 'border-white/5 hover:border-amber-500/20'}`}
+                className={`h-64 border-2 border-dashed rounded-[32px] flex flex-col items-center justify-center cursor-pointer transition-all duration-500 ${productImage ? 'border-amber-500/40 bg-amber-500/5 shadow-inner' : 'border-white/5 hover:border-amber-500/30 hover:bg-white/5'}`}
               >
                 {productImage ? (
-                  <img src={productImage} alt="Input" className="h-full w-full object-contain p-4" />
+                  <img src={productImage} alt="Input" className="h-full w-full object-contain p-6 hover:scale-105 transition-transform duration-500" />
                 ) : (
-                  <div className="text-center">
-                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-amber-500">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                  <div className="text-center group">
+                    <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center mx-auto mb-6 text-slate-600 group-hover:text-amber-500 group-hover:bg-amber-500/10 transition-all duration-500 border border-white/5 group-hover:border-amber-500/30">
+                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                     </div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Select Product Photo</p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-amber-500 transition-colors">Select Product Photo</p>
                   </div>
                 )}
                 <input type="file" ref={fileInputRef} onChange={(e) => {
@@ -161,40 +170,44 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
             </div>
 
             <div className="space-y-4">
-              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Neural Directives</p>
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em]">Engine Directives</p>
               <textarea 
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                className="w-full h-32 bg-black/40 border border-white/5 rounded-2xl p-6 text-[11px] font-medium text-slate-400 focus:outline-none focus:border-amber-500/30 leading-relaxed"
+                className="w-full h-32 bg-black/40 border border-white/5 rounded-3xl p-6 text-[11px] font-medium text-slate-400 focus:outline-none focus:border-amber-500/40 focus:bg-black/60 transition-all leading-relaxed shadow-inner"
               />
             </div>
           </div>
 
-          <div className="mt-8 space-y-3">
+          <div className="mt-10 space-y-4">
             <button 
               onClick={handleGenerate}
               disabled={isGenerating || !productImage}
-              className="w-full py-5 bg-[#d4af37] hover:bg-[#c49b2d] disabled:opacity-20 text-black rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg active:scale-95 transition-all"
+              className={`w-full py-6 rounded-[24px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-4 shadow-2xl transition-all duration-500 active:scale-95 ${
+                isGenerating || !productImage
+                ? 'bg-white/5 text-slate-700 cursor-not-allowed border border-white/5'
+                : 'bg-[#d4af37] text-black hover:bg-white hover:shadow-amber-500/20'
+              }`}
             >
               {isGenerating ? (
-                <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
+                <div className="w-6 h-6 border-4 border-black/10 border-t-black rounded-full animate-spin"></div>
               ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
               )}
-              {isMannequinRemover ? 'EXECUTE ISOLATION' : 'EXECUTE RENDER'}
+              {isGenerating ? 'PROCESSING...' : (isMannequinRemover ? 'RENDER HD ISO' : 'RENDER HD STUDIO')}
             </button>
 
             {errorMsg && (
-              <div className="space-y-3">
-                <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-xl text-center">
-                  <p className="text-[10px] text-red-400 font-black uppercase">{errorMsg}</p>
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                <div className="p-5 bg-red-500/5 border border-red-500/20 rounded-2xl text-center">
+                  <p className="text-[10px] text-red-400 font-black uppercase tracking-widest leading-tight">{errorMsg}</p>
                 </div>
-                {(errorMsg.includes('LIMIT') || errorMsg.includes('KUNCI')) && (
+                {(errorMsg.includes('KUOTA') || errorMsg.includes('KEY')) && (
                   <button 
                     onClick={handleUpdateKey}
-                    className="w-full py-3 bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all"
+                    className="w-full py-4 bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-lg animate-bounce"
                   >
-                    Change API Key (Unlimited)
+                    Change API Key (Free Unlimited)
                   </button>
                 )}
               </div>
@@ -203,49 +216,55 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col gap-6">
-        <div className="flex items-center justify-between px-6">
-          <div className="flex items-center gap-4">
-            <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">Production Output</h3>
-            <span className="bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest">8K LUXE / CERTIFIED</span>
+      <div className="flex-1 flex flex-col gap-8">
+        <div className="flex items-center justify-between px-8">
+          <div className="flex items-center gap-6">
+            <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">HD Output</h3>
+            <div className="h-1 w-12 bg-amber-500/20 rounded-full"></div>
+            <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.5em]">Verified Luxe Quality</span>
           </div>
-          <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.3em]">Master Render</p>
         </div>
 
-        <div className={`flex-1 bg-[#080808] border border-white/5 rounded-[48px] overflow-hidden flex flex-col items-center justify-center relative group ${isMannequinRemover && resultImage ? 'checkerboard' : ''}`}>
-          <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+        <div className={`flex-1 bg-[#080808] border border-white/5 rounded-[60px] overflow-hidden flex flex-col items-center justify-center relative shadow-inner group ${isMannequinRemover && resultImage ? 'checkerboard' : ''}`}>
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '60px 60px' }}></div>
           
           {resultImage ? (
-            <div className="w-full h-full p-12 flex items-center justify-center animate-in zoom-in-95 duration-500">
-              <div className="h-full aspect-[9/16] bg-transparent rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(212,175,55,0.15)] relative">
+            <div className="w-full h-full p-16 flex items-center justify-center animate-in zoom-in-95 fade-in duration-1000">
+              <div className="h-full aspect-[9/16] bg-transparent rounded-[40px] overflow-hidden shadow-[0_0_120px_rgba(212,175,55,0.15)] relative border border-white/5">
                 <img src={resultImage} alt="Result" className="w-full h-full object-cover" />
                 <button 
                   onClick={() => {
                     const link = document.createElement('a');
                     link.href = resultImage;
-                    link.download = `luxe-ai-8k-${Date.now()}.png`;
+                    link.download = `luxe-ai-master-${Date.now()}.png`;
                     link.click();
                   }}
-                  className="absolute bottom-6 right-6 p-4 bg-[#d4af37] text-black rounded-2xl shadow-xl hover:scale-110 transition-transform active:scale-95"
+                  className="absolute bottom-10 right-10 p-5 bg-[#d4af37] text-black rounded-3xl shadow-2xl hover:scale-110 hover:bg-white transition-all active:scale-95 group/dl"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 </button>
               </div>
             </div>
           ) : (
-            <div className="text-center space-y-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <div className="w-20 h-20 border-2 border-dashed border-white/40 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+            <div className="text-center space-y-6 opacity-20 group-hover:opacity-30 transition-opacity duration-700">
+              <div className="w-24 h-24 border-2 border-dashed border-white/40 rounded-[40px] flex items-center justify-center mx-auto mb-8 shadow-inner">
+                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               </div>
-              <p className="text-[10px] font-black text-white uppercase tracking-[0.5em]">Waiting for Engine Execution</p>
+              <p className="text-[11px] font-black text-white uppercase tracking-[0.6em] italic">System Ready // Nano Banana 2.5</p>
             </div>
           )}
 
           {isGenerating && (
-            <div className="absolute inset-0 bg-[#050505]/95 backdrop-blur-md flex items-center justify-center z-20">
-              <div className="text-center space-y-6">
-                <div className="w-16 h-16 border-4 border-amber-500/10 border-t-amber-500 rounded-full animate-spin mx-auto"></div>
-                <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] animate-pulse italic">Synthesizing High-Definition Assets...</p>
+            <div className="absolute inset-0 bg-[#050505]/98 backdrop-blur-3xl flex items-center justify-center z-20">
+              <div className="text-center space-y-8">
+                <div className="relative w-20 h-20 mx-auto">
+                  <div className="absolute inset-0 border-4 border-amber-500/10 rounded-full"></div>
+                  <div className="absolute inset-0 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-[12px] font-black text-amber-500 uppercase tracking-[0.6em] animate-pulse italic">Synthesizing 8K Asset...</p>
+                  <p className="text-[8px] text-slate-600 uppercase tracking-widest font-bold">Modulating Neural Layers</p>
+                </div>
               </div>
             </div>
           )}
