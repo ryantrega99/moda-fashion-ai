@@ -12,25 +12,25 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Initial loading sequence
-    const init = () => {
-      if (process.env.API_KEY) {
-        setIsAuthorized(true);
-      }
-      setIsLoading(false);
-    };
-    const timer = setTimeout(init, 500);
+    // Check if we already have an API key (e.g., set via Vercel Env Vars)
+    if (process.env.API_KEY) {
+      setIsAuthorized(true);
+    }
+    const timer = setTimeout(() => setIsLoading(false), 300);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleConnectEngine = () => {
-    // CRITICAL FIX: Proceed to app immediately. 
-    // This solves the issue where the button "doesn't go anywhere" in Vercel.
+  const handleConnectEngine = async () => {
+    // Proceed immediately to satisfy "easy entry" and prevent "stuck" UI
     setIsAuthorized(true);
     
-    // Attempt selector only if available
+    // Trigger the key selection dialog if the platform supports it
     if (window.aistudio?.openSelectKey) {
-      window.aistudio.openSelectKey().catch(() => {});
+      try {
+        await window.aistudio.openSelectKey();
+      } catch (err) {
+        console.warn("Key selection dialog could not be opened.", err);
+      }
     }
   };
 
@@ -47,10 +47,7 @@ const App: React.FC = () => {
   if (isLoading) {
     return (
       <div className="h-screen w-full bg-[#050505] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-6">
-          <div className="w-12 h-12 border-[3px] border-white/5 border-t-white rounded-full animate-spin"></div>
-          <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em] animate-pulse">LUXE.AI INITIALIZING</p>
-        </div>
+        <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -58,11 +55,9 @@ const App: React.FC = () => {
   if (!isAuthorized) {
     return (
       <div className="h-screen w-full bg-black flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-[#0a0a0a] border border-white/5 p-12 rounded-[50px] text-center shadow-2xl animate-in fade-in zoom-in duration-700 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-          
-          <div className="w-24 h-24 bg-white/5 border border-white/10 rounded-[35px] flex items-center justify-center mx-auto mb-10 shadow-inner group">
-            <svg className="w-10 h-10 text-white group-hover:scale-110 transition-transform duration-500" fill="currentColor" viewBox="0 0 24 24">
+        <div className="max-w-md w-full bg-[#0a0a0a] border border-white/5 p-12 rounded-[60px] text-center shadow-2xl relative overflow-hidden animate-in fade-in zoom-in duration-500">
+          <div className="w-24 h-24 bg-white/5 border border-white/10 rounded-[40px] flex items-center justify-center mx-auto mb-10">
+            <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z"/>
             </svg>
           </div>
@@ -71,22 +66,20 @@ const App: React.FC = () => {
             LUXE<span className="text-white/40">.AI</span>
           </h1>
           
-          <p className="text-white/40 text-[11px] mb-12 leading-relaxed font-medium px-6 uppercase tracking-widest">
-            Elite Visual Studio. <br/> Hubungkan Engine untuk Melanjutkan.
+          <p className="text-white/40 text-[11px] mb-12 uppercase tracking-widest leading-relaxed">
+            Professional 8K Fashion Studio. <br/> Hubungkan Engine untuk Memulai.
           </p>
 
           <button 
             onClick={handleConnectEngine}
-            className="w-full py-6 bg-white text-black rounded-3xl font-black uppercase tracking-[0.3em] hover:bg-[#eee] transition-all duration-300 shadow-[0_20px_50px_rgba(255,255,255,0.1)] active:scale-95 text-[11px]"
+            className="w-full py-6 bg-white text-black rounded-3xl font-black uppercase tracking-[0.3em] hover:bg-zinc-200 transition-all active:scale-95 text-[11px] shadow-2xl"
           >
             CONNECT STUDIO ENGINE
           </button>
           
-          <div className="mt-12 space-y-3">
-            <p className="text-[8px] text-white/20 uppercase tracking-[0.4em] font-black">
-              AUTHORIZED: <span className="text-white/60 font-bold underline">FREE & PAID KEY SUPPORTED</span>
-            </p>
-          </div>
+          <p className="mt-10 text-[8px] text-white/10 uppercase tracking-[0.4em] font-black italic">
+            Visual Production Suite v3.2
+          </p>
         </div>
       </div>
     );
@@ -108,10 +101,10 @@ const App: React.FC = () => {
               {activeView === 'dashboard' ? 'CORE SYSTEM // ROOT' : `STUDIO // ${selectedTool?.title}`}
             </h2>
           </div>
-          <div className="flex items-center gap-6">
-             <div className="flex items-center gap-3 px-6 py-2.5 bg-white/5 rounded-full border border-white/10 shadow-inner group">
+          <div className="flex items-center gap-4">
+             <div className="flex items-center gap-3 px-6 py-2.5 bg-white/5 rounded-full border border-white/10">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></div>
-                <span className="text-[9px] font-black text-white/60 uppercase tracking-widest italic">8K NANO FLASH ACTIVE</span>
+                <span className="text-[9px] font-black text-white/60 uppercase tracking-widest italic">8K ENGINE READY</span>
              </div>
           </div>
         </header>
