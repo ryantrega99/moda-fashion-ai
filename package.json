@@ -6,14 +6,15 @@
   "description": "High-Fidelity AI Fashion Visual Engine",
   "scripts": {
     "start": "serve .",
-    "build": "echo 'No build step required for static ESM app'"
+    "build": "esbuild index.tsx --bundle --outfile=index.js --format=esm --jsx=automatic --external:react --external:react-dom --external:@google/genai --loader:.tsx=tsx --loader:.ts=ts"
   },
   "dependencies": {
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "@google/genai": "^1.35.0"
+    "@google/genai": "^1.35.0",
+    "esbuild": "^0.24.0"
   },
   "engines": {
-    "node": "20.x"
+    "node": "20"
   }
 }
