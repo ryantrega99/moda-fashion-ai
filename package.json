@@ -6,7 +6,7 @@
   "description": "High-Fidelity AI Fashion Visual Engine",
   "scripts": {
     "start": "serve .",
-    "build": "echo 'No build step required for ESM-native app'"
+    "build": "mkdir -p .public && cp index.html index.tsx types.ts App.tsx vercel.json metadata.json .public/ 2>/dev/null || true"
   },
   "dependencies": {
     "react": "^19.2.3",
