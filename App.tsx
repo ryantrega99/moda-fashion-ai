@@ -6,19 +6,16 @@ function App() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🔑 AMBIL GEMINI API KEY
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY?.trim();
 
-  // ✅ VALIDASI KEY
   if (!GEMINI_API_KEY || GEMINI_API_KEY.length < 20) {
     return (
       <div style={{ padding: 20, color: "red" }}>
-        ❌ GEMINI API KEY TIDAK VALID / TIDAK TERBACA
+        ❌ GEMINI API KEY TIDAK TERBACA
       </div>
     );
   }
 
-  // 🚀 FUNGSI PANGGIL GEMINI
   const generate = async () => {
     try {
       setLoading(true);
@@ -26,7 +23,7 @@ function App() {
       setResult("");
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: {
@@ -35,6 +32,7 @@ function App() {
           body: JSON.stringify({
             contents: [
               {
+                role: "user",
                 parts: [{ text: prompt }],
               },
             ],
@@ -43,14 +41,20 @@ function App() {
       );
 
       const data = await res.json();
+      console.log("GEMINI RESPONSE:", data);
+
+      if (!res.ok) {
+        throw new Error(data?.error?.message || "Gemini error");
+      }
 
       const text =
         data?.candidates?.[0]?.content?.parts?.[0]?.text ||
         "❌ Tidak ada respon dari Gemini";
 
       setResult(text);
-    } catch (err: any) {
-      setError("❌ Gagal menghubungi Gemini");
+    } catch (e: any) {
+      setError("❌ Gagal generate dari Gemini");
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -58,7 +62,7 @@ function App() {
 
   return (
     <div style={{ padding: 20, maxWidth: 600 }}>
-      <h2>Gemini AI Test (Vite + Vercel)</h2>
+      <h2>Gemini AI (FIXED)</h2>
 
       <textarea
         rows={4}
