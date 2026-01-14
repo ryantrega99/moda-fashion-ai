@@ -6,7 +6,7 @@
   "description": "High-Fidelity AI Fashion Visual Engine",
   "scripts": {
     "start": "serve .",
-    "build": "esbuild index.tsx --bundle --outfile=index.js --format=esm --jsx=automatic --external:react --external:react-dom --external:@google/genai --loader:.tsx=tsx --loader:.ts=ts"
+    "build": "esbuild index.tsx --bundle --outfile=index.js --format=esm --jsx=automatic --platform=browser --target=esnext --external:react --external:react-dom --external:@google/genai --loader:.tsx=tsx --loader:.ts=ts"
   },
   "dependencies": {
     "react": "^19.2.3",

@@ -24,6 +24,13 @@
             border-radius: 3px;
         }
     </style>
+    <script>
+        /** 
+         * Polyfill darurat untuk mencegah "process is not defined" 
+         * di lingkungan browser murni.
+         */
+        window.process = window.process || { env: {} };
+    </script>
 <script type="importmap">
 {
   "imports": {
