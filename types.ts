@@ -1,5 +1,4 @@
 
-// Fix: Import React to provide the 'React' namespace for React.ReactNode
 import React from 'react';
 
 export interface FashionTool {
@@ -14,8 +13,7 @@ export interface FashionTool {
 export type AppView = 'dashboard' | 'studio' | 'settings';
 
 export enum Category {
-  VIDEO = 'Video & Storytelling',
-  VISUAL = 'Fotografi & Visual',
-  STYLING = 'Utilitas & Styling',
-  CATALOG = 'Katalog & Produk'
+  CORE = 'Core Isolation Engine',
+  CATALOG = 'Studio Production',
+  ASSISTANT = 'Creative Intelligence'
 }
