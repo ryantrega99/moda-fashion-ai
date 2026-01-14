@@ -5,33 +5,51 @@ import Dashboard from './components/Dashboard';
 import StudioView from './components/StudioView';
 import { AppView, FashionTool } from './types';
 
+// Declare aistudio types for global window object
+declare global {
+  interface Window {
+    aistudio: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
+
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<AppView>('dashboard');
   const [selectedTool, setSelectedTool] = useState<FashionTool | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Use recommended API key selection check
   useEffect(() => {
-    // Selalu izinkan masuk ke Dashboard agar user bisa menggunakan openSelectKey() jika key env kosong
-    const timer = setTimeout(() => {
-      // Jika ada API_KEY di env, kita anggap authorized otomatis
-      if (process.env.API_KEY && process.env.API_KEY !== "undefined" && process.env.API_KEY !== "") {
+    const checkAuth = async () => {
+      if (window.aistudio?.hasSelectedApiKey) {
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (hasKey) {
+          setIsAuthorized(true);
+        }
+      } else if (process.env.API_KEY && process.env.API_KEY !== "undefined" && process.env.API_KEY !== "") {
         setIsAuthorized(true);
       }
       setIsLoading(false);
-    }, 400);
-    return () => clearTimeout(timer);
+    };
+    checkAuth();
   }, []);
 
-  const handleConnectEngine = () => {
-    // Force enter the app immediately - users shouldn't be stuck on the gate
-    setIsAuthorized(true);
-    
+  const handleConnectEngine = async () => {
     // Attempt key selection if platform allows
     if (window.aistudio?.openSelectKey) {
-      window.aistudio.openSelectKey().catch((err) => {
-        console.warn("Could not open key selector auto-magically:", err);
-      });
+      try {
+        await window.aistudio.openSelectKey();
+        // Assume success after triggering key selector to avoid race conditions
+        setIsAuthorized(true);
+      } catch (err) {
+        console.warn("Could not open key selector:", err);
+        setIsAuthorized(true);
+      }
+    } else {
+      setIsAuthorized(true);
     }
   };
 
@@ -69,9 +87,20 @@ const App: React.FC = () => {
             MODA<span className="cyan-text">FX</span>
           </h1>
           
-          <p className="text-slate-500 text-[11px] mb-12 uppercase tracking-widest leading-relaxed">
+          <p className="text-slate-500 text-[11px] mb-8 uppercase tracking-widest leading-relaxed">
             Cyber-Fashion Asset Studio. <br/> Engine Siap Digunakan.
           </p>
+
+          <div className="mb-8">
+            <a 
+              href="https://ai.google.dev/gemini-api/docs/billing" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[9px] text-cyan-500/60 hover:text-cyan-400 underline uppercase tracking-widest"
+            >
+              Billing Requirements & Documentation
+            </a>
+          </div>
 
           <button 
             onClick={handleConnectEngine}
@@ -81,7 +110,7 @@ const App: React.FC = () => {
           </button>
           
           <p className="mt-10 text-[8px] text-cyan-500/30 uppercase tracking-[0.5em] font-black italic">
-            Visual Suite v3.5 // NANO BANANA ENGINE
+            Visual Suite v3.5 // GEMINI 3 PRO ENGINE
           </p>
         </div>
       </div>
@@ -107,7 +136,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4">
              <div className="flex items-center gap-3 px-6 py-2.5 bg-cyan-500/5 rounded-full border border-cyan-500/10">
                 <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00f5ff]"></div>
-                <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest italic">NANO-FX ENGINE ACTIVE</span>
+                <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest italic">ULTRA-FX ENGINE ACTIVE</span>
              </div>
           </div>
         </header>

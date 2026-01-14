@@ -61,6 +61,7 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
     setErrorMsg(null);
 
     try {
+      // Create a new GoogleGenAI instance right before making an API call
       const apiKey = process.env.API_KEY;
       
       if (!apiKey || apiKey === "undefined" || apiKey === "") {
@@ -72,8 +73,9 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
       const base64Data = productImage.split(',')[1];
       const mimeType = productImage.split(',')[0].split(':')[1].split(';')[0];
       
+      // Use gemini-3-pro-image-preview for high quality images as requested by tool badges
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image', 
+        model: 'gemini-3-pro-image-preview', 
         contents: {
           parts: [
             { inlineData: { data: base64Data, mimeType: mimeType } },
@@ -81,7 +83,10 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
           ],
         },
         config: { 
-          imageConfig: { aspectRatio: "9:16" }
+          imageConfig: { 
+            aspectRatio: "9:16",
+            imageSize: "4K" // Highest quality supported
+          }
         }
       });
 
@@ -94,6 +99,7 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
 
       let foundImage = false;
       if (candidate.content?.parts) {
+        // Iterate through all parts to find the image part
         for (const part of candidate.content.parts) {
           if (part.inlineData) {
             setResultImage(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
@@ -109,8 +115,12 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
       console.error('MODAFX Render Error:', error);
       const msg = error.message || "";
       
-      if (msg === "AUTH_ERROR" || msg.includes('403') || msg.includes('API_KEY')) {
-        setErrorMsg("API KEY HILANG ATAU TIDAK VALID");
+      // Reset key selection state and prompt user to select a key again if requested entity was not found
+      if (msg.includes("Requested entity was not found") || msg === "AUTH_ERROR" || msg.includes('403') || msg.includes('API_KEY')) {
+        setErrorMsg("API KEY KEDALUWARSA ATAU TIDAK VALID. SILAKAN HUBUNGKAN ULANG.");
+        if (msg.includes("Requested entity was not found") && window.aistudio?.openSelectKey) {
+            window.aistudio.openSelectKey();
+        }
       } else if (msg.includes('429')) {
         setErrorMsg("QUOTA ENGINE HABIS. COBA LAGI NANTI.");
       } else if (msg === "SAFETY_BLOCK") {
@@ -132,8 +142,8 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
           <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-[80px]"></div>
           
           <div className="flex items-center gap-3 mb-10">
-            <span className="bg-cyan-500 text-black text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest italic shadow-lg">NANO-FX</span>
-            <span className="text-cyan-500/40 text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-cyan-500/10 italic tracking-tighter">FLASH 2.5</span>
+            <span className="bg-cyan-500 text-black text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest italic shadow-lg">NANO-PRO</span>
+            <span className="text-cyan-500/40 text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-cyan-500/10 italic tracking-tighter">GEMINI 3 PRO</span>
           </div>
 
           <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-4 leading-tight">{tool.title}</h2>
@@ -197,7 +207,7 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
                   onClick={handleUpdateKey}
                   className="w-full py-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-[20px] text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all shadow-lg"
                 >
-                  SILAKAN HUBUNGKAN ULANG ENGINE
+                  HUBUNGKAN ULANG ENGINE
                 </button>
               </div>
             )}
@@ -226,7 +236,7 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
             </div>
           ) : (
             <div className="text-center opacity-10 flex flex-col items-center gap-6">
-              <p className="text-[10px] font-black text-white uppercase tracking-[1em] italic">Engine Ready // 8K Output</p>
+              <p className="text-[10px] font-black text-white uppercase tracking-[1em] italic">Engine Ready // 4K Output</p>
             </div>
           )}
 

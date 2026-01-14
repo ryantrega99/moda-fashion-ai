@@ -1,18 +1,26 @@
 
 {
   "name": "modafx-studio",
-  "version": "3.2.0",
+  "version": "3.5.0",
   "private": true,
-  "description": "High-Fidelity AI Fashion Visual Engine",
+  "type": "module",
+  "description": "High-Fidelity AI Fashion Visual Engine with Vite",
   "scripts": {
-    "start": "serve .",
-    "build": "esbuild index.tsx --bundle --outfile=index.js --format=esm --jsx=automatic --platform=browser --target=esnext --external:react --external:react-dom --external:@google/genai --loader:.tsx=tsx --loader:.ts=ts"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "@google/genai": "^1.35.0",
-    "esbuild": "^0.24.0"
+    "@google/genai": "^1.35.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
   },
   "engines": {
     "node": "20"
