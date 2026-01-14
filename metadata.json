@@ -1,6 +1,6 @@
 {
-  "name": "ModaAI Studio",
-  "description": "A premium AI-powered workspace for fashion content creation, specializing in Baju Koko, Gamis, Celana, and Women's Fashion.",
+  "name": "ModaFX Pro Studio",
+  "description": "Premium Surgical AI for Fashion Content Isolation and Realistic Catalog Rendering.",
   "requestFramePermissions": [
     "camera"
   ]
