@@ -6,7 +6,7 @@
   "description": "High-Fidelity AI Fashion Visual Engine",
   "scripts": {
     "start": "serve .",
-    "build": "mkdir -p .public && cp index.html index.tsx types.ts App.tsx vercel.json metadata.json .public/ 2>/dev/null || true"
+    "build": "echo 'No build step required for static ESM app'"
   },
   "dependencies": {
     "react": "^19.2.3",
@@ -14,6 +14,6 @@
     "@google/genai": "^1.35.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "20.x"
   }
 }
