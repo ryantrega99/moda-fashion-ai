@@ -42,27 +42,33 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
         console.error("Failed to open key selector:", e);
       }
     } else {
-      alert("Fitur pemilihan kunci hanya tersedia di Google AI Studio. Pastikan Anda telah mengatur API_KEY di Vercel Dashboard jika menggunakan deploy publik.");
+      alert("TIPS VERCEL: Tambahkan 'API_KEY' di Environment Variables Vercel Dashboard Anda untuk menggunakan aplikasi ini di domain publik.");
     }
   };
 
   const handleGenerate = async () => {
     if (!productImage || !prompt) return;
     
+    // Check key before starting
+    const currentKey = process.env.API_KEY;
+    if (!currentKey || currentKey === "undefined" || currentKey === "") {
+      setErrorMsg("API Key Hilang. Tambahkan API_KEY di Vercel Dashboard.");
+      return;
+    }
+
     setIsGenerating(true);
     setResultImage(null);
     setErrorMsg(null);
 
     try {
-      // Re-instance GoogleGenAI right before the call to pick up the latest API key
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: currentKey });
       
       const base64Data = productImage.split(',')[1];
       const mimeType = productImage.split(',')[0].split(':')[1].split(';')[0];
       
-      // Using gemini-3-pro-image-preview for requested High-Quality 8K output
+      // Using gemini-2.5-flash-image (Nano Banana) as explicitly requested
       const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-image-preview', 
+        model: 'gemini-2.5-flash-image', 
         contents: {
           parts: [
             { inlineData: { data: base64Data, mimeType: mimeType } },
@@ -71,8 +77,8 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
         },
         config: { 
           imageConfig: { 
-            aspectRatio: "9:16",
-            imageSize: "1K" // Pro models support 1K, 2K, 4K. Starting with 1K for better reliability.
+            aspectRatio: "9:16"
+            // imageSize is NOT supported for gemini-2.5-flash-image
           }
         }
       });
@@ -81,20 +87,22 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
       if (!candidate) throw new Error("No response from engine.");
 
       if (candidate.finishReason === 'SAFETY') {
-        throw new Error("Filtered by safety guidelines.");
+        throw new Error("Render diblokir filter keamanan.");
       }
 
       let foundImage = false;
-      for (const part of candidate.content.parts) {
-        if (part.inlineData) {
-          setResultImage(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
-          foundImage = true;
-          break;
+      if (candidate.content && candidate.content.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.inlineData) {
+            setResultImage(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
+            foundImage = true;
+            break;
+          }
         }
       }
 
       if (!foundImage) {
-        throw new Error("Render failed to return visual data.");
+        throw new Error("Render gagal mengembalikan data visual.");
       }
 
     } catch (error: any) {
@@ -102,9 +110,9 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
       const msg = error.message || "";
       
       if (msg.includes('429')) {
-        setErrorMsg("Quota Exceeded. Silakan ganti API Key.");
-      } else if (msg.includes('API_KEY') || msg.includes('403') || msg.includes('not found')) {
-        setErrorMsg("API Key Missing or Invalid. Hubungkan ulang project.");
+        setErrorMsg("Quota Habis. Silakan gunakan API Key lain.");
+      } else if (msg.includes('API_KEY') || msg.includes('403') || msg.includes('not found') || msg.includes('invalid')) {
+        setErrorMsg("API Key Tidak Valid/Hilang. Cek Vercel Env Variables.");
       } else {
         setErrorMsg(`Render Error: ${msg.substring(0, 60)}`);
       }
@@ -122,8 +130,8 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-[80px]"></div>
           
           <div className="flex items-center gap-3 mb-10">
-            <span className="bg-white text-black text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest italic shadow-xl">8K PRO</span>
-            <span className="bg-white/5 text-white/30 text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-white/5">GEMINI 3 PRO</span>
+            <span className="bg-white text-black text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest italic shadow-xl">NANO PRO</span>
+            <span className="bg-white/5 text-white/30 text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-white/5 italic tracking-tighter">FLASH ENGINE</span>
           </div>
 
           <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-4 leading-tight">{tool.title}</h2>
@@ -176,8 +184,8 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
               disabled={isGenerating || !productImage}
               className={`w-full py-6 rounded-[28px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-4 transition-all duration-300 active:scale-95 text-[11px] shadow-2xl ${
                 isGenerating || !productImage
-                ? 'bg-white/5 text-white/10 cursor-not-allowed'
-                : 'bg-white text-black hover:bg-zinc-200 shadow-white/5'
+                ? 'bg-white/5 text-white/10 cursor-not-allowed border border-white/5'
+                : 'bg-white text-black hover:bg-zinc-200'
               }`}
             >
               {isGenerating ? (
@@ -197,7 +205,7 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
                   onClick={handleUpdateKey}
                   className="w-full py-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-[20px] text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all shadow-lg"
                 >
-                  HUBUNGKAN API KEY (PRO/FREE)
+                  SET API KEY (REQUIRED)
                 </button>
               </div>
             )}
@@ -231,7 +239,7 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
               <div className="w-20 h-20 border border-white/20 rounded-[35px] flex items-center justify-center mx-auto mb-8">
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               </div>
-              <p className="text-[10px] font-black text-white uppercase tracking-[0.5em] italic">Engine Ready // Output 8K</p>
+              <p className="text-[10px] font-black text-white uppercase tracking-[0.5em] italic">Engine Ready // Nano Banana 2.5</p>
             </div>
           )}
 
@@ -241,7 +249,7 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack }) => {
                 <div className="w-16 h-16 border-2 border-white/5 border-t-white rounded-full animate-spin mx-auto"></div>
                 <div className="space-y-2">
                   <p className="text-[11px] font-black text-white uppercase tracking-[0.6em] animate-pulse italic">Synthesizing Asset...</p>
-                  <p className="text-[8px] text-white/30 uppercase tracking-widest font-bold">GEMINI 3 PRO ENGINE</p>
+                  <p className="text-[8px] text-white/30 uppercase tracking-widest font-bold">NANO FLASH IMAGE ENGINE</p>
                 </div>
               </div>
             </div>
