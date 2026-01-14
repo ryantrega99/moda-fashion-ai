@@ -16,6 +16,7 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack, apiKey }) => {
   const [prompt, setPrompt] = useState('');
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [retryStatus, setRetryStatus] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -24,12 +25,12 @@ const StudioView: React.FC<StudioViewProps> = ({ tool, onBack, apiKey }) => {
     setResultImage(null);
     setProductImage(null);
     setErrorMsg(null);
+    setRetryStatus(null);
 
     // HD & Ultra Detail Foundation
     const hdCore = "ULTRA-HD 8K RESOLUTION, HYPER-REALISTIC, MACRO FABRIC TEXTURE, PROFESSIONAL STUDIO LIGHTING, NO NOISE, SHARP EDGES.";
 
     if (isMannequinRemover) {
-      // Prompt yang lebih profesional dan "aman" untuk filter AI namun tetap efektif
       setPrompt(`PROFESSIONAL GHOST MANNEQUIN ISOLATION: ${hdCore}
 OBJECTIVE: Create a high-fidelity PNG of the garment with 100% TRANSPARENT BACKGROUND (Alpha Channel).
 INSTRUCTIONS: Cleanly isolate the clothing from the human model. Remove all visible skin, including head, neck, hands, arms, legs, and feet. 
@@ -41,79 +42,94 @@ SUBJECT: A high-end real human model wearing the garment. Perfect drape, natural
     }
   }, [tool?.id]);
 
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
   const handleGenerate = async () => {
     if (!productImage || !prompt) return;
     setIsGenerating(true);
     setResultImage(null);
     setErrorMsg(null);
+    setRetryStatus(null);
 
-    try {
-      // Selalu inisialisasi instance baru untuk memastikan key terbaru digunakan
-      const ai = new GoogleGenAI({ apiKey: apiKey });
-      
-      const base64Data = productImage.split(',')[1];
-      const mimeType = productImage.split(',')[0].split(':')[1].split(';')[0];
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType: mimeType } },
-            { text: prompt },
-          ],
-        },
-        config: { 
-          imageConfig: { 
-            aspectRatio: "9:16"
+    const maxRetries = 3;
+    let attempt = 0;
+
+    while (attempt <= maxRetries) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: apiKey });
+        const base64Data = productImage.split(',')[1];
+        const mimeType = productImage.split(',')[0].split(':')[1].split(';')[0];
+        
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash-image',
+          contents: {
+            parts: [
+              { inlineData: { data: base64Data, mimeType: mimeType } },
+              { text: prompt },
+            ],
+          },
+          config: { 
+            imageConfig: { 
+              aspectRatio: "9:16"
+            }
           }
+        });
+
+        if (!response.candidates || response.candidates.length === 0) {
+          throw new Error("Engine tidak memberikan respon. Coba gunakan foto dengan pencahayaan yang lebih baik.");
         }
-      });
 
-      // Validasi kandidat respon
-      if (!response.candidates || response.candidates.length === 0) {
-        throw new Error("Engine tidak memberikan respon. Coba gunakan foto dengan pencahayaan yang lebih baik.");
+        const candidate = response.candidates[0];
+        if (candidate.finishReason === 'SAFETY') {
+          throw new Error("KEAMANAN: Konten atau instruksi dianggap sensitif oleh AI. Coba ubah foto atau instruksi.");
+        }
+
+        const imagePart = candidate.content.parts.find(p => p.inlineData);
+        const textPart = candidate.content.parts.find(p => p.text);
+
+        if (imagePart?.inlineData) {
+          setResultImage(`data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`);
+          setIsGenerating(false);
+          setRetryStatus(null);
+          return; // Success!
+        } else if (textPart?.text) {
+          throw new Error(`AI Respon: "${textPart.text.substring(0, 100)}..."`);
+        } else {
+          throw new Error("Gagal menghasilkan gambar. Pastikan API Key valid.");
+        }
+
+      } catch (error: any) {
+        console.error(`Attempt ${attempt + 1} failed:`, error);
+        
+        const isRateLimit = error.message?.includes('429') || error.status === 429;
+        
+        if (isRateLimit && attempt < maxRetries) {
+          const waitTime = Math.pow(2, attempt) * 2000;
+          setRetryStatus(`RATE LIMIT: Mengulang otomatis dalam ${waitTime/1000} detik... (Percobaan ${attempt + 1}/${maxRetries})`);
+          await delay(waitTime);
+          attempt++;
+          continue; // Retry loop
+        }
+
+        // Final error handling if no more retries
+        if (error.message?.includes('403') || error.message?.includes('PERMISSION_DENIED')) {
+          setErrorMsg("AKSES DITOLAK: Periksa apakah API Key sudah benar.");
+        } else if (isRateLimit) {
+          setErrorMsg("RATE LIMIT TERLAMPAUI: Batas penggunaan API telah tercapai. Tunggu beberapa menit.");
+        } else {
+          setErrorMsg("GAGAL RENDER: " + (error.message || "Pastikan koneksi internet stabil."));
+        }
+        break; 
       }
-
-      const candidate = response.candidates[0];
-
-      // Cek apakah terblokir oleh safety filter
-      if (candidate.finishReason === 'SAFETY') {
-        throw new Error("KEAMANAN: Konten atau instruksi dianggap sensitif oleh AI. Coba ubah foto atau instruksi.");
-      }
-
-      // Cari bagian gambar (inlineData)
-      const imagePart = candidate.content.parts.find(p => p.inlineData);
-      const textPart = candidate.content.parts.find(p => p.text);
-
-      if (imagePart?.inlineData) {
-        setResultImage(`data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`);
-      } else if (textPart?.text) {
-        // Jika AI malah membalas dengan teks (misal: "Saya tidak bisa...")
-        console.warn("AI Response Text:", textPart.text);
-        throw new Error(`AI Respon: "${textPart.text.substring(0, 100)}..."`);
-      } else {
-        throw new Error("Gagal menghasilkan gambar. Pastikan API Key valid dan saldo kuota tersedia.");
-      }
-    } catch (error: any) {
-      console.error('Render error:', error);
-      
-      if (error.message?.includes('403') || error.message?.includes('PERMISSION_DENIED')) {
-        setErrorMsg("AKSES DITOLAK: Periksa apakah API Key sudah benar dan memiliki akses ke model Gemini 2.5 Flash Image.");
-      } else if (error.message?.includes('429')) {
-        setErrorMsg("TERLALU BANYAK PERMINTAAN: Tunggu sebentar lalu coba lagi (Rate Limit).");
-      } else {
-        setErrorMsg("GAGAL RENDER: " + (error.message || "Pastikan koneksi internet stabil."));
-      }
-    } finally {
-      setIsGenerating(false);
     }
+    setIsGenerating(false);
+    setRetryStatus(null);
   };
 
   if (!tool) return null;
 
   return (
     <div className="flex h-full w-full gap-8 animate-in fade-in duration-500">
-      {/* Left Panel: Control Panel */}
       <div className="w-[450px] flex flex-col gap-6">
         <div className="bg-[#0c0f16] border border-white/5 rounded-[32px] p-8 flex flex-col h-full shadow-xl">
           <div className="flex items-center gap-2 mb-6">
@@ -180,15 +196,20 @@ SUBJECT: A high-end real human model wearing the garment. Perfect drape, natural
             {isMannequinRemover ? 'RENDER HD ISOLASI' : 'RENDER HD PHOTO'}
           </button>
           
+          {retryStatus && (
+            <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl animate-pulse">
+              <p className="text-[10px] text-emerald-400 font-black uppercase text-center leading-tight italic">{retryStatus}</p>
+            </div>
+          )}
+          
           {errorMsg && (
-            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl animate-bounce">
+            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
               <p className="text-[10px] text-red-400 font-black uppercase text-center leading-tight">{errorMsg}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Right Panel: Result Panel */}
       <div className="flex-1 flex flex-col gap-6">
         <div className="flex items-center justify-between px-6">
           <div className="flex items-center gap-4">
@@ -232,6 +253,7 @@ SUBJECT: A high-end real human model wearing the garment. Perfect drape, natural
               <div className="text-center space-y-6">
                 <div className="w-16 h-16 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin mx-auto"></div>
                 <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] animate-pulse">Engaging HD Rendering Engine...</p>
+                {retryStatus && <p className="text-[8px] text-white/40 uppercase tracking-widest">{retryStatus}</p>}
               </div>
             </div>
           )}
